@@ -1,0 +1,6 @@
+{
+  "id": "tetris",
+  "name": "테트리스",
+  "description": "7종 블록, 고스트·홀드·빠른 낙하와 반짝이는 줄 삭제 애니메이션.",
+  "entry": "game.py"
+}

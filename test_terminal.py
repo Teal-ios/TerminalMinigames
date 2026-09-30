@@ -33,7 +33,7 @@ class TerminalTests(unittest.TestCase):
         return output
 
     def test_all_games_accept_input_and_restore_terminal(self):
-        for game in ('poop', 'space', 'volley', 'breakout', 'fight'):
+        for game in ('poop', 'space', 'volley', 'breakout', 'fight', 'tetris'):
             with self.subTest(game=game):
                 master, slave = pty.openpty()
                 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 100, 0, 0))
@@ -49,6 +49,9 @@ class TerminalTests(unittest.TestCase):
                         os.write(master, b'a')
                         # Curses may retain the leading G from the previous GAP label.
                         output += self.until(master, b'STRIKES BLOCKED')
+                    elif game == 'tetris':
+                        os.write(master, b'wzsc ')
+                        output += self.drain(master)
                     os.write(master, b'p')
                     output += self.until(master, b'PAUSED')
                     os.write(master, b'r')
@@ -74,7 +77,7 @@ class TerminalTests(unittest.TestCase):
                     os.close(slave)
 
     def test_resize_pauses_and_recovers(self):
-        for game in ('poop', 'space', 'volley', 'breakout', 'fight'):
+        for game in ('poop', 'space', 'volley', 'breakout', 'fight', 'tetris'):
             with self.subTest(game=game):
                 master, slave = pty.openpty()
                 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 15, 35, 0, 0))
