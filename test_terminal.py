@@ -33,7 +33,7 @@ class TerminalTests(unittest.TestCase):
         return output
 
     def test_all_games_accept_input_and_restore_terminal(self):
-        for game in ('poop', 'space', 'volley', 'breakout'):
+        for game in ('poop', 'space', 'volley', 'breakout', 'fight'):
             with self.subTest(game=game):
                 master, slave = pty.openpty()
                 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 40, 100, 0, 0))
@@ -70,7 +70,7 @@ class TerminalTests(unittest.TestCase):
                     os.close(slave)
 
     def test_resize_pauses_and_recovers(self):
-        for game in ('poop', 'space', 'volley', 'breakout'):
+        for game in ('poop', 'space', 'volley', 'breakout', 'fight'):
             with self.subTest(game=game):
                 master, slave = pty.openpty()
                 fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack('HHHH', 15, 35, 0, 0))

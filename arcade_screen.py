@@ -61,8 +61,12 @@ def run(factory, width=64, height=32):
             if not small:
                 if key in (10, 13) and not started:
                     started = True
+                    getattr(game, 'start', lambda: None)()
                 elif key in (ord('r'), ord('R')):
-                    game, started, paused = factory(), True, False
+                    game, started, paused = getattr(game, 'restart', factory)(), True, False
+                    getattr(game, 'start', lambda: None)()
+                elif not started:
+                    getattr(game, 'handle_menu', lambda key: None)(key)
                 elif key in (ord('p'), ord('P')) and started and not game.over:
                     paused = not paused
                 elif started and not paused and not game.over:
