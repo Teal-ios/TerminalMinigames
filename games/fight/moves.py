@@ -20,6 +20,7 @@ class Move:
     projectile: float = 0
     armor: bool = False
     breaker: bool = False
+    active: float = 0.10
 
     @property
     def last_hit(self):
@@ -27,7 +28,7 @@ class Move:
 
     @property
     def duration(self):
-        return self.last_hit + 0.08 + self.recovery
+        return self.last_hit + self.active + self.recovery
 
 
 BASIC = {
@@ -54,6 +55,9 @@ class Profile:
     power: float
     description: str
     skills: dict
+    reach_scale: float = 1.0
+    concept: str = ''
+    color: int = 1
 
 
 ROSTER = (
@@ -63,19 +67,19 @@ ROSTER = (
         'x': Move('SONIC WAVE', 16, 60, 0.24, cost=35, projectile=26),
         'c': Move('METEOR KICK', 26, 7, 0.32, cost=50, advance=18, down=True, breaker=True),
         'h': Move('DRAGON STORM', 13, 8, 0.25, cost=100, hits=3, down=True, push=0.2),
-    }),
+    }, concept='EMBER / spiked hair + red headband', color=1),
     Profile('RUSH', 90, 1.3, 0.9, 'Fast: dashes, multi-hit attacks, pressure', {
         'i': Move('FLASH STEP', 13, 6, 0.10, cost=20, advance=28, recovery=0.16),
         'z': Move('CYCLONE KICK', 9, 7, 0.16, cost=30, hits=2, launch=12, push=0.1),
         'x': Move('NEEDLE WAVE', 14, 60, 0.15, cost=35, projectile=34),
         'c': Move('PHANTOM RUSH', 9, 8, 0.12, cost=50, hits=4, advance=22, push=0.1),
         'h': Move('SHADOW DANCE', 11, 9, 0.16, cost=100, hits=5, down=True, push=0.1),
-    }),
+    }, reach_scale=0.94, concept='GALE / ponytail + flowing scarf', color=4),
     Profile('IRON', 120, 0.8, 1.1, 'Power: armored shoulder, low wave, grabs', {
         'i': Move('IRON SHOULDER', 23, 6.5, 0.34, cost=20, advance=15, armor=True, push=2),
         'z': Move('QUAKE FIST', 20, 7, 0.30, cost=30, height='low', down=True),
         'x': Move('EARTH WAVE', 20, 60, 0.32, cost=35, height='low', projectile=20),
         'c': Move('TITAN CLINCH', 32, 6, 0.22, cost=50, height='grab', down=True),
         'h': Move('METEOR SLAM', 45, 6.5, 0.25, cost=100, height='grab', down=True),
-    }),
+    }, reach_scale=1.08, concept='ANVIL / mohawk + heavy gauntlets', color=2),
 )

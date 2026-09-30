@@ -8,7 +8,7 @@ class Screen:
     def __init__(self, window, width, height):
         self.window, self.width, self.height = window, width, height
         self.left = self.top = 0
-        self.styles = [curses.A_NORMAL] * 6
+        self.styles = [curses.A_NORMAL] * 9
         if curses.has_colors():
             curses.start_color()
             for index, color in enumerate((curses.COLOR_CYAN, curses.COLOR_YELLOW,
@@ -17,6 +17,9 @@ class Screen:
                 self.styles[index] = curses.color_pair(index) | curses.A_BOLD
             curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_YELLOW)
             self.styles[5] = curses.color_pair(5) | curses.A_BOLD
+            for index, color in ((6, curses.COLOR_MAGENTA), (7, curses.COLOR_WHITE), (8, curses.COLOR_WHITE)):
+                curses.init_pair(index, color, curses.COLOR_BLACK)
+                self.styles[index] = curses.color_pair(index) | (curses.A_DIM if index == 7 else curses.A_BOLD)
 
     def text(self, y, x, value, color=0):
         try:
@@ -82,7 +85,7 @@ def run(factory, width=64, height=32):
                 canvas.left, canvas.top = (cols - width) // 2, (rows - height) // 2
                 game.draw(canvas)
                 if not started:
-                    canvas.centered(14, '  ENTER TO START  ', 2)
+                    canvas.centered(getattr(game, 'start_prompt_row', 14), '  ENTER TO START  ', 2)
                 elif paused:
                     canvas.centered(14, '  PAUSED - P TO RESUME  ', 2)
                 elif game.over:

@@ -1,4 +1,4 @@
-"""ASCII stick-fighter presentation and keyboard bindings."""
+"""Animated terminal stick-fighter presentation and keyboard bindings."""
 from pathlib import Path
 import sys
 
@@ -9,16 +9,23 @@ import curses
 import math
 
 from arcade_screen import run
-from games.fight.combat import FightGame
+from games.fight.combat import FightGame, Fighter
 from games.fight.moves import ROSTER
+from games.fight.render import Surface, draw_arena, figure
 
 
 class TerminalFight(FightGame):
+    start_prompt_row = 31
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.help_open = False
+        self.range_guide = False
 
     def handle(self, key):
+        if key in (ord('b'), ord('B')):
+            self.range_guide = not self.range_guide
+            return
         if key in (ord('t'), ord('T')):
             self.help_open = not self.help_open
             return
@@ -56,7 +63,7 @@ class TerminalFight(FightGame):
             screen.text(row, 3, f'{key.upper()}  {move.name:<15} {move.cost:3} MP  ' + '/'.join(tags), 2)
 
     def draw(self, screen):
-        screen.centered(0, 'S T I C K   C L A S H', 1)
+        screen.centered(0, 'S T I C K   C L A S H  /  OVERDRIVE', 1)
         if self.phase == 'select':
             self.draw_select(screen)
             return
@@ -68,49 +75,50 @@ class TerminalFight(FightGame):
             col = 1 if side == 0 else 34
             screen.text(3, col, ('YOU ' if side == 0 else 'CPU ') + fighter.profile.name, 1 if side == 0 else 3)
             filled = math.ceil(18 * fighter.hp / fighter.profile.hp)
-            screen.text(4, col, f'HP [{"#" * filled}{"." * (18 - filled)}] {fighter.hp:3}', 4 if fighter.hp > 25 else 3)
+            trail = max(filled, math.ceil(18 * self.health_trail[side] / fighter.profile.hp))
+            screen.text(4, col, f'HP [{"." * 18}] {fighter.hp:3}', 7)
+            screen.text(4, col + 4, '=' * trail, 3)
+            screen.text(4, col + 4, '#' * filled, 4 if fighter.hp > fighter.profile.hp / 4 else 3)
             meter = int(fighter.meter // 10)
             screen.text(5, col, f'MP [{"=" * meter}{"." * (10 - meter)}] {int(fighter.meter):3}', 2)
         active_combo = next((fighter for fighter in self.fighters if fighter.combo_timer > 0 and fighter.combo_hits >= 2), None)
         if active_combo:
-            screen.centered(6, f'{active_combo.profile.name}: {active_combo.combo_hits} HIT COMBO / {active_combo.combo_damage} DAMAGE', 2)
+            screen.centered(6, f'<< {active_combo.combo_hits:02} HITS >>  {active_combo.combo_damage} DAMAGE  /  {active_combo.profile.name}', 2)
         if self.throw:
             screen.centered(7, 'GRABBED! PRESS G NOW!' if self.throw.owner == 1 else 'THROW ATTEMPT!', 3)
         elif self.phase == 'between' or self.message_timer > 0:
             screen.centered(7, self.message, 2)
         screen.border(8, 18)
-        screen.text(24, 1, '_' * 62, 1)
-        # City silhouettes keep the arena readable behind the moving fighters.
-        screen.text(10, 4, ' _[]_       ___           _[]_        ___      _[]_', 0)
-        screen.text(11, 4, '|    |     |   |         |    |      |   |    |   |', 0)
-        for side, fighter in enumerate(self.fighters):
-            self.draw_fighter(screen, fighter, side)
-        for shot in self.projectiles:
-            y = max(9, min(24, 24 - int(shot.y)))
-            for offset, char in enumerate('=O>' if shot.vx > 0 else '<O='):
-                x = 1 + int(shot.x) + offset
-                if 1 <= x <= 62:
-                    screen.text(y, x, char, 2 if shot.owner == 0 else 3)
+        draw_arena(screen, self, self.range_guide)
+        player = self.fighters[0]
+        distance = abs(player.x - self.fighters[1].x)
+        link = player.attack and player.attack.confirmed and player.attack.resolved >= player.attack.move.hits
+        screen.text(26, 1, 'HIT CONFIRMED - LINK YOUR NEXT ATTACK!' if link
+                    else f'GAP {distance:4.1f}   JAB {5.5 * player.profile.reach_scale:.1f}   KICK {7 * player.profile.reach_scale:.1f}   B: Range guide', 2 if link else 7)
         screen.text(27, 1, 'A/D Move  W Jump  S Duck  E Dash  SPACE Guard')
         screen.text(28, 1, 'J Jab  K Heavy  L Kick  U Launch  O Grab  G Break')
         screen.text(29, 1, 'I/Z/X/C Skills  H Super  T Help  P Pause  R Restart')
+        inputs = ' > '.join(key.upper() for key, _ in player.history)
+        screen.text(30, 1, f'INPUT: {inputs or "-"}   /   {player.last_move or "Keep your distance. Find an opening."}', 7)
         screen.text(31, 1, 'Chains: J>J>K  J>L>K  L>L>K     Q/ESC: Quit', 1)
 
     def draw_select(self, screen):
-        screen.centered(2, '1 vs CPU / FIRST TO 2 ROUNDS / 60 SECONDS', 2)
-        screen.text(4, 3, 'YOUR FIGHTER: ' + ROSTER[self.selected].name, 1)
-        screen.text(5, 3, ROSTER[self.selected].description)
-        for index, profile in enumerate(ROSTER):
-            marker = '>' if index == self.selected else ' '
-            screen.text(8 + index, 3, f'{marker} {index + 1}  {profile.name:<8} HP {profile.hp:3}', 2 if index == self.selected else 0)
+        screen.centered(2, 'CHOOSE YOUR STYLE  /  FIRST TO TWO', 2)
+        screen.text(4, 3, 'YOU: ' + ROSTER[self.selected].name + '   [1 / 2 / 3]', 1)
         cpu_name = 'RANDOM' if self.cpu_selected is None else ROSTER[self.cpu_selected].name
-        screen.text(12, 3, 'CPU FIGHTER: ' + cpu_name, 3)
-        screen.text(13, 3, '4 STRIKER   5 RUSH   6 IRON   0 RANDOM')
-        screen.text(17, 3, 'YOUR SPECIAL MOVES / METER COST', 1)
-        self.skill_rows(screen, 19)
-        screen.text(26, 3, 'J/K/L attacks + U launcher + O grab + G throw break')
-        screen.text(28, 3, 'Each fighter: 4 unique skills + 1 super + common moves')
-        screen.text(30, 3, 'Choose, then ENTER to fight. In match: T for move list.')
+        screen.text(5, 3, 'CPU FIGHTER: ' + cpu_name, 3)
+        screen.text(6, 3, 'CPU: 4 STRIKER / 5 RUSH / 6 IRON / 0 RANDOM')
+        portraits = Surface(62, 11)
+        for index, profile in enumerate(ROSTER):
+            x = 10 + index * 20
+            fighter = Fighter(profile, x)
+            figure(portraits, fighter, 0.5 + index, floor=39)
+            screen.text(8, x - 3, ('>' if index == self.selected else ' ') + profile.name, profile.color)
+        portraits.flush(screen, top=9)
+        screen.centered(20, ROSTER[self.selected].concept, ROSTER[self.selected].color)
+        self.skill_rows(screen, 22)
+        screen.text(28, 3, 'J/K/L attacks  U launch  O grab  G break  T move list')
+        screen.text(29, 3, 'Keep distance. Confirm a hit. Link into your finisher.')
 
     def draw_help(self, screen):
         screen.centered(2, 'MOVE LIST - GAME PAUSED - T TO RETURN', 2)
@@ -128,44 +136,8 @@ class TerminalFight(FightGame):
         self.skill_rows(screen, 19)
         screen.text(25, 2, 'Land hits/build meter, then spend it on special moves.')
         screen.text(27, 2, 'R: rematch with same choices (random CPU rerolls).')
+        screen.text(28, 2, 'B: show attack reach. Hit sparks freeze the action briefly.')
         screen.text(29, 2, 'Q: quit. Run arcade fight again to change characters.')
-
-    def draw_fighter(self, screen, fighter, side):
-        pose = ['   O     ', '  /|\\    ', '   |     ', '  / \\    ', ' /   \\   ']
-        if fighter.down > 0:
-            pose = [' __o____ ']
-        elif self.throw is not None:
-            pose = ['   O     ', '  /|==>  ', '   |     ', '  / \\    ', ' /   \\   ']
-        elif fighter.stun > 0:
-            pose = ['  *O*    ', '  \\|/    ', '   |     ', '  / \\    ', ' /   \\   ']
-        elif fighter.attack:
-            move = fighter.attack.move
-            if 'KICK' in move.name or 'SWEEP' in move.name or 'AXE' in move.name:
-                pose = ['   O     ', '  /|\\    ', '   |___> ', '  /      ', ' /       ']
-            elif move.height == 'grab':
-                pose = ['   O     ', '  /|--{  ', '   |     ', '  / \\    ', ' /   \\   ']
-            elif move.launch:
-                pose = ['   O  /  ', '  /| /   ', '   |     ', '  / \\    ', ' /   \\   ']
-            else:
-                pose = ['   O     ', '  /|===> ', '   |     ', '  / \\    ', ' /   \\   ']
-        elif fighter.guard > 0:
-            pose = ['   O |   ', '  /|]|   ', '   |     ', '  / \\    ', ' /   \\   ']
-        elif fighter.crouch > 0:
-            pose = ['   o     ', '  /|>    ', ' _/ \\_   ']
-        elif fighter.y > 0:
-            pose = ['   O     ', '  /|\\    ', '   |     ', ' _/ \\_   ']
-        elif fighter.dash > 0:
-            pose = ['    O    ', ' --/|>   ', '   /     ', ' _/ \\    ']
-        color = 1 if side == 0 else 3
-        bottom = 24 - int(fighter.y)
-        for index, line in enumerate(pose):
-            if fighter.facing < 0:
-                line = line[::-1].translate(str.maketrans('/\\<>{}', '\\/><}{'))
-            y = bottom - len(pose) + 1 + index
-            for offset, char in enumerate(line):
-                x = 2 + int(fighter.x) - 4 + offset
-                if char != ' ' and 1 <= x <= 62 and 9 <= y <= 24:
-                    screen.text(y, x, char, color)
 
 
 def main():
