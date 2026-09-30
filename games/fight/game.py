@@ -58,8 +58,6 @@ class TerminalFight(FightGame):
                 tags.append(f'{move.hits} HITS')
             if move.armor:
                 tags.append('ARMOR')
-            if move.breaker:
-                tags.append('GUARD BREAK')
             screen.text(row, 3, f'{key.upper()}  {move.name:<15} {move.cost:3} MP  ' + '/'.join(tags), 2)
 
     def draw(self, screen):
@@ -93,9 +91,10 @@ class TerminalFight(FightGame):
         player = self.fighters[0]
         distance = abs(player.x - self.fighters[1].x)
         link = player.attack and player.attack.confirmed and player.attack.resolved >= player.attack.move.hits
-        screen.text(26, 1, 'HIT CONFIRMED - LINK YOUR NEXT ATTACK!' if link
+        screen.text(26, 1, 'GUARD ACTIVE / STRIKES BLOCKED - WATCH FOR THROWS!' if self.guarding(player)
+                    else 'HIT CONFIRMED - LINK YOUR NEXT ATTACK!' if link
                     else f'GAP {distance:4.1f}   JAB {5.5 * player.profile.reach_scale:.1f}   KICK {7 * player.profile.reach_scale:.1f}   B: Range guide', 2 if link else 7)
-        screen.text(27, 1, 'A/D Move  W Jump  S Duck  E Dash  SPACE Guard')
+        screen.text(27, 1, 'A/D Move (BACK=Guard)  W Jump  S Duck  E Dash')
         screen.text(28, 1, 'J Jab  K Heavy  L Kick  U Launch  O Grab  G Break')
         screen.text(29, 1, 'I/Z/X/C Skills  H Super  T Help  P Pause  R Restart')
         inputs = ' > '.join(key.upper() for key, _ in player.history)
@@ -118,7 +117,7 @@ class TerminalFight(FightGame):
         screen.centered(20, ROSTER[self.selected].concept, ROSTER[self.selected].color)
         self.skill_rows(screen, 22)
         screen.text(28, 3, 'J/K/L attacks  U launch  O grab  G break  T move list')
-        screen.text(29, 3, 'Keep distance. Confirm a hit. Link into your finisher.')
+        screen.text(29, 3, 'Back to guard. Throw to break defense. G to escape.')
 
     def draw_help(self, screen):
         screen.centered(2, 'MOVE LIST - GAME PAUSED - T TO RETURN', 2)
@@ -126,9 +125,9 @@ class TerminalFight(FightGame):
         screen.text(5, 2, 'S then L: low sweep   W then L: flying kick')
         screen.text(6, 2, 'U: launcher -> J/L follow-up for an air combo')
         screen.text(7, 2, 'O: close-range grab, ignores guard   G: throw break')
-        screen.text(9, 2, 'SPACE: standing guard   S then SPACE: low guard')
-        screen.text(10, 2, 'Low attacks beat standing guard. Mid beats low guard.')
-        screen.text(11, 2, 'Duck avoids high jabs/grabs. Jump avoids low attacks.')
+        screen.text(9, 2, 'BACK: retreat + guard   SPACE: guard in place')
+        screen.text(10, 2, 'Guard blocks strikes/waves. Throws beat any guard.')
+        screen.text(11, 2, 'Forward/attack/jump drops guard. G breaks a throw.')
         screen.text(13, 2, 'J>J>K Rush Finish   J>L>K Spin Launch   L>L>K Axe Finish')
         screen.text(14, 2, 'Queue up to 3 inputs. Follow-ups cancel on a hit.')
         screen.text(15, 2, 'Combos scale damage; 6 hits force a knockdown.')

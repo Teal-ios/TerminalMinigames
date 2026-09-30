@@ -35,7 +35,7 @@ class FightTests(unittest.TestCase):
         self.advance(game, 0.5)
         self.assertEqual(game.fighters[1].hp, hp)
 
-    def test_standing_guard_blocks_mid_but_sweep_beats_it(self):
+    def test_standing_guard_blocks_mid_and_sweep(self):
         game = self.arena()
         defender = game.fighters[1]
         game.press(1, 'guard')
@@ -47,7 +47,7 @@ class FightTests(unittest.TestCase):
         game.press(0, 's')
         game.press(0, 'l')
         self.advance(game, 0.4)
-        self.assertLess(defender.hp, defender.profile.hp)
+        self.assertEqual(defender.hp, defender.profile.hp)
 
     def test_crouch_guard_blocks_low_and_ducks_jab(self):
         game = self.arena()
@@ -205,13 +205,13 @@ class FightTests(unittest.TestCase):
         self.advance(game, 0.2)
         self.assertEqual(game.fighters[1].hp, game.fighters[1].profile.hp)
 
-    def test_mid_attack_beats_low_guard(self):
+    def test_crouching_guard_also_blocks_mid_in_simple_guard_rules(self):
         game = self.arena()
         game.press(1, 's')
         game.press(1, 'guard')
         game.press(0, 'k')
         self.advance(game, 0.3)
-        self.assertLess(game.fighters[1].hp, game.fighters[1].profile.hp)
+        self.assertEqual(game.fighters[1].hp, game.fighters[1].profile.hp)
 
     def test_expired_input_cannot_trigger_a_late_combo_finisher(self):
         game = self.arena(distance=15)

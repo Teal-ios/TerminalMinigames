@@ -50,6 +50,8 @@ def run(factory, width=64, height=32):
             pass
         window.nodelay(True)
         window.keypad(True)
+        if hasattr(curses, 'set_escdelay'):
+            curses.set_escdelay(25)
         canvas = Screen(window, width, height)
         game, started, paused = factory(), False, False
         last = time.monotonic()
@@ -58,10 +60,15 @@ def run(factory, width=64, height=32):
             dt, last = min(0.05, now - last), now
             rows, cols = window.getmaxyx()
             small = rows < height + 1 or cols < width + 2
-            key = window.getch()
-            if key in (ord('q'), ord('Q'), 27):
-                return
-            if not small:
+            # Drain bursts before simulation, with a cap so input cannot starve rendering.
+            for _ in range(64):
+                key = window.getch()
+                if key == -1:
+                    break
+                if key in (ord('q'), ord('Q'), 27):
+                    return
+                if small:
+                    continue
                 if key in (10, 13) and not started:
                     started = True
                     getattr(game, 'start', lambda: None)()
@@ -74,8 +81,8 @@ def run(factory, width=64, height=32):
                     paused = not paused
                 elif started and not paused and not game.over:
                     game.handle(key)
-                if started and not paused and not game.over:
-                    game.update(dt)
+            if not small and started and not paused and not game.over:
+                game.update(dt)
             window.erase()
             if small:
                 canvas.left = canvas.top = 0
@@ -92,7 +99,7 @@ def run(factory, width=64, height=32):
                     canvas.centered(14, f'  {game.result}  ', 3)
                     canvas.centered(16, '  R: RESTART   Q: QUIT  ', 2)
             window.refresh()
-            time.sleep(1 / 60)
+            time.sleep(max(0, 1 / 60 - (time.monotonic() - now)))
 
     try:
         curses.wrapper(loop)

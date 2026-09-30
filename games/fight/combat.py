@@ -28,6 +28,8 @@ class Fighter:
     stun: float = 0
     down: float = 0
     guard: float = 0
+    guard_dir: int = 0
+    blockstun: float = 0
     crouch: float = 0
     dash: float = 0
     invincible: float = 0
@@ -40,6 +42,7 @@ class Fighter:
     combo_timer: float = 0
     move_dir: int = 0
     move_timer: float = 0
+    vx: float = 0
     knockback: float = 0
     flash: float = 0
 
@@ -173,27 +176,37 @@ class FightGame:
                     person.stun = 0.18
                 self.say('THROW BREAK!')
             return
-        if not fighter.free:
+        if not fighter.free and fighter.blockstun <= 0:
             return
         if action in BASIC or action in fighter.profile.skills:
             if len(fighter.queue) < 3:
                 fighter.queue.append((action, self.elapsed))
             self.process_queue(side)
             return
-        if fighter.attack is not None:
-            return
         if action in ('a', 'd'):
             fighter.move_dir = -1 if action == 'a' else 1
-            fighter.move_timer = 0.14
-            fighter.guard = 0
-        elif action == 'w' and fighter.y == 0:
+            fighter.move_timer = 0.26
+            opponent = self.fighters[1 - side]
+            away = (opponent.x - fighter.x) * fighter.move_dir < 0
+            fighter.guard = 0.32 if away and fighter.y == 0 and fighter.vy <= 0 else 0
+            fighter.guard_dir = fighter.move_dir if fighter.guard else 0
+            if fighter.guard:
+                fighter.dash = 0
+            return
+        if fighter.attack is not None:
+            return
+        if action == 'guard' and fighter.y == 0 and fighter.vy <= 0:
+            fighter.guard, fighter.guard_dir = 0.7, 0
+            fighter.move_timer = fighter.vx = fighter.dash = 0
+            return
+        if not fighter.free:
+            return
+        if action == 'w' and fighter.y == 0:
             fighter.vy = 16
             fighter.crouch = fighter.guard = 0
             self.effect('dust', fighter.x, 0, color=7)
         elif action == 's' and fighter.y == 0:
             fighter.crouch = 0.6
-        elif action == 'guard' and fighter.y == 0:
-            fighter.guard = 0.7
         elif action == 'e' and fighter.y == 0:
             fighter.dash = 0.18
             fighter.guard = 0
@@ -229,7 +242,7 @@ class FightGame:
         fighter.history.append((action, self.elapsed))
         fighter.attack = Attack(move)
         fighter.guard = fighter.dash = 0
-        fighter.move_timer = 0
+        fighter.move_timer = fighter.vx = 0
         fighter.last_move = move.name
         if move.cost == 100:
             self.effect('super', fighter.x, 3, 0.55, fighter.profile.color, move.name)
@@ -248,6 +261,15 @@ class FightGame:
             a.facing = 1 if b.x >= a.x else -1
         if b.attack is None:
             b.facing = 1 if a.x >= b.x else -1
+        for fighter, opponent in ((a, b), (b, a)):
+            if fighter.guard_dir and (opponent.x - fighter.x) * fighter.guard_dir >= 0:
+                fighter.guard = 0
+
+    @staticmethod
+    def guarding(fighter):
+        return (fighter.guard > 0 and fighter.attack is None and fighter.y == 0
+                and fighter.vy <= 0 and fighter.down <= 0
+                and (fighter.stun <= 0 or fighter.blockstun > 0))
 
     def connect(self, side, move, projectile=False):
         attacker, defender = self.fighters[side], self.fighters[1 - side]
@@ -260,13 +282,16 @@ class FightGame:
                     or ax2 < bx1 or ax1 > bx2 or ay2 < by1 or ay1 > by2):
                 return 'miss'
         if move.height == 'grab':
-            if defender.y > 0 or defender.vy > 0 or defender.crouch > 0 or defender.stun > 0 or attacker.y > 0:
+            if (defender.y > 0 or defender.vy > 0
+                    or (defender.crouch > 0 and not self.guarding(defender))
+                    or defender.stun > 0 or attacker.y > 0):
                 return 'miss'
             self.throw = Throw(side, move, cpu_break=self.cpu_enabled and side == 0 and self.rng.random() < 0.35)
             for fighter in self.fighters:
                 fighter.attack = None
                 fighter.queue.clear()
                 fighter.stun = 0.4
+                fighter.guard = fighter.blockstun = fighter.move_timer = fighter.vx = 0
             self.say('CPU GRAB! G TO BREAK!' if side == 1 else 'GRAB!')
             self.effect('grab', (attacker.x + defender.x) / 2, 3, 0.3, 6)
             return 'hit'
@@ -274,11 +299,10 @@ class FightGame:
             return 'miss'
         if move.height == 'low' and defender.y > 0.8:
             return 'miss'
-        guarded = defender.guard > 0 and defender.attack is None and defender.y == 0
-        matching_guard = (move.height == 'low') == (defender.crouch > 0)
-        if guarded and matching_guard and not move.breaker:
-            defender.stun = 0.12
-            defender.hp = max(0, defender.hp - (2 if move.cost else 0))
+        if self.guarding(defender):
+            defender.stun = defender.blockstun = 0.12
+            defender.guard = max(defender.guard, 0.20)
+            defender.vx = 0
             attacker.meter = min(100, attacker.meter + 3)
             defender.meter = min(100, defender.meter + 2)
             self.say('BLOCK!')
@@ -313,6 +337,7 @@ class FightGame:
             defender.attack = None
             defender.queue.clear()
             defender.guard = defender.dash = 0
+            defender.blockstun = defender.vx = 0
             defender.stun = max(0.16, move.stun * (0.93 ** (attacker.combo_hits - 1))) + (0.1 if counter else 0)
             defender.knockback = attacker.facing * move.push * 9
             defender.move_timer = 0
@@ -334,6 +359,14 @@ class FightGame:
             return
         distance = abs(cpu.x - player.x)
         toward = 'a' if cpu.x > player.x else 'd'
+        if self.guarding(player):
+            if distance <= BASIC['o'].reach * cpu.profile.reach_scale:
+                self.press(1, 'o')
+            else:
+                self.press(1, toward)
+                if distance > 7:
+                    self.press(1, 'e')
+            return
         if distance > 8:
             if cpu.meter >= 35 and self.rng.random() < 0.20:
                 self.press(1, 'x')
@@ -420,7 +453,7 @@ class FightGame:
         self.message_timer = max(0, self.message_timer - dt)
         for fighter in self.fighters:
             was_down = fighter.down > 0
-            for field_name in ('stun', 'down', 'guard', 'crouch', 'dash', 'invincible', 'combo_timer', 'move_timer', 'flash'):
+            for field_name in ('stun', 'blockstun', 'down', 'guard', 'crouch', 'dash', 'invincible', 'combo_timer', 'move_timer', 'flash'):
                 setattr(fighter, field_name, max(0, getattr(fighter, field_name) - dt))
             if was_down and fighter.down == 0:
                 fighter.invincible = 0.25
@@ -432,8 +465,15 @@ class FightGame:
                     fighter.vy = 0
             fighter.x += fighter.knockback * dt
             fighter.knockback *= max(0, 1 - dt * 12)
+            target_vx = 0
             if fighter.move_timer > 0 and fighter.free and fighter.attack is None:
-                fighter.x += fighter.move_dir * 15 * fighter.profile.speed * dt
+                pace = 0.6 if self.guarding(fighter) else 1
+                target_vx = fighter.move_dir * 15 * fighter.profile.speed * pace
+            if not fighter.free or fighter.attack is not None:
+                fighter.vx = 0
+            else:
+                fighter.vx += max(-150 * dt, min(150 * dt, target_vx - fighter.vx))
+                fighter.x += fighter.vx * dt
             if fighter.dash > 0 and fighter.free:
                 fighter.x += fighter.facing * 28 * fighter.profile.speed * dt
         self.trail_clock -= dt

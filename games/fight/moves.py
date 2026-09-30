@@ -19,7 +19,6 @@ class Move:
     advance: float = 0
     projectile: float = 0
     armor: bool = False
-    breaker: bool = False
     active: float = 0.10
 
     @property
@@ -65,7 +64,7 @@ ROSTER = (
         'i': Move('PALM BURST', 18, 7.5, 0.18, cost=20, push=2),
         'z': Move('RISING FIST', 14, 6, 0.20, cost=30, launch=16, push=0.1),
         'x': Move('SONIC WAVE', 16, 60, 0.24, cost=35, projectile=26),
-        'c': Move('METEOR KICK', 26, 7, 0.32, cost=50, advance=18, down=True, breaker=True),
+        'c': Move('METEOR KICK', 26, 7, 0.32, cost=50, advance=18, down=True),
         'h': Move('DRAGON STORM', 13, 8, 0.25, cost=100, hits=3, down=True, push=0.2),
     }, concept='EMBER / spiked hair + red headband', color=1),
     Profile('RUSH', 90, 1.3, 0.9, 'Fast: dashes, multi-hit attacks, pressure', {

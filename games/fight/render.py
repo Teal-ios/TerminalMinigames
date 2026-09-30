@@ -52,6 +52,13 @@ class Surface:
             screen.text(top + y, left + x, chr(0x2800 + mask), color)
 
 
+def blend_pose(start, end, progress):
+    progress = max(0, min(1, progress))
+    weight = progress * progress * (3 - 2 * progress)
+    return {key: (x + (end[key][0] - x) * weight,
+                  y + (end[key][1] - y) * weight) for key, (x, y) in start.items()}
+
+
 def limb_pose(fighter, clock):
     """Animated joints in local pixels: up is positive; facing mirrors x."""
     bob = math.sin(clock * 4) * 0.6
@@ -66,10 +73,11 @@ def limb_pose(fighter, clock):
     if fighter.crouch > 0 and fighter.y == 0:
         p.update(hip=(-2, 4), shoulder=(0, 9), head=(1, 13), elbow=(4, 8), hand=(5, 11),
                  back_elbow=(-5, 5), back_hand=(-4, 1), knee=(4, 4), back_knee=(-5, 2))
-    if fighter.move_timer > 0:
+    if abs(fighter.vx) > 0.1:
         gait = math.sin(clock * 18)
-        p.update(knee=(4 + gait * 2, 7), foot=(6 * gait, max(0, gait * 3)),
-                 back_knee=(-4 - gait * 2, 7), back_foot=(-6 * gait, max(0, -gait * 3)))
+        walking = dict(p, knee=(4 + gait * 2, 7), foot=(6 * gait, max(0, gait * 3)),
+                       back_knee=(-4 - gait * 2, 7), back_foot=(-6 * gait, max(0, -gait * 3)))
+        p = blend_pose(p, walking, abs(fighter.vx) / (15 * fighter.profile.speed))
     if fighter.y > 0:
         p.update(knee=(5, 10), foot=(8, 7), back_knee=(-6, 9), back_foot=(-3, 4))
     if fighter.dash > 0:
@@ -79,34 +87,34 @@ def limb_pose(fighter, clock):
         shoulder = p['shoulder']
         p.update(elbow=(5, shoulder[1] - 3), hand=(6, shoulder[1] + 5),
                  back_elbow=(1, shoulder[1] - 5), back_hand=(5, shoulder[1] + 3))
-    if fighter.stun > 0:
+    if fighter.stun > 0 and fighter.blockstun <= 0:
         p.update(shoulder=(-4, 21), head=(-7, 26), elbow=(1, 16), hand=(5, 14),
                  back_elbow=(-8, 17), back_hand=(-11, 22))
     attack = fighter.attack
     if attack:
         move, t = attack.move, attack.elapsed
-        if t < move.startup:
-            wind = math.sin(t / max(0.01, move.startup) * math.pi / 2)
-            p.update(shoulder=(-2 * wind, 22), head=(-2 * wind, 27),
-                     elbow=(-5 * wind, 18), hand=(-3 * wind, 23))
+        resting = p.copy()
+        winding = dict(p, shoulder=(-2, 22), head=(-2, 27), elbow=(-5, 18), hand=(-3, 23))
+        reach = (move.reach - 1.2) * 2
+        reach = min(reach, 13) if move.projectile else reach
+        if move.height == 'low':
+            p.update(hip=(-2, 5), shoulder=(-3, 12), head=(-3, 17), knee=(reach / 2, 3), foot=(reach, 2))
+        elif move.launch:
+            p.update(shoulder=(2, 23), head=(1, 28), elbow=(reach / 2, 26), hand=(reach, 32))
+        elif 'KICK' in move.name or 'AXE' in move.name:
+            p.update(hip=(-2, 14), shoulder=(-4, 23), head=(-5, 28),
+                     knee=(reach / 2, 15), foot=(reach, 14), back_foot=(-5, 0))
+            winding.update(knee=(3, 12), foot=(1, 7))
         else:
-            recover = max(0, t - move.last_hit - move.active) / max(0.01, move.recovery)
-            extension = max(0, 1 - recover)
-            reach = (move.reach - 1.2) * 2
-            reach = min(reach, 13) if move.projectile else reach
-            # Keep the striking limb at its collision reach during active frames.
-            reach *= extension
-            if move.height == 'low':
-                p.update(hip=(-2, 5), shoulder=(-3, 12), head=(-3, 17), knee=(reach / 2, 3), foot=(reach, 2))
-            elif move.launch:
-                p.update(shoulder=(2, 23), head=(1, 28), elbow=(reach / 2, 26), hand=(reach, 32))
-            elif 'KICK' in move.name or 'AXE' in move.name:
-                p.update(hip=(-2, 14), shoulder=(-4, 23), head=(-5, 28),
-                         knee=(reach / 2, 15), foot=(reach, 14), back_foot=(-5, 0))
-            else:
-                y = 21 if move.height == 'high' else 15
-                p.update(shoulder=(2 * extension, 22), head=(1, 27),
-                         elbow=(reach * 0.5, y + 1), hand=(reach, y))
+            y = 21 if move.height == 'high' else 15
+            p.update(shoulder=(2, 22), head=(1, 27), elbow=(reach * 0.5, y + 1), hand=(reach, y))
+        wind_end = move.startup * 0.55
+        if t < wind_end:
+            p = blend_pose(resting, winding, t / max(.001, wind_end))
+        elif t < move.startup:
+            p = blend_pose(winding, p, (t - wind_end) / max(.001, move.startup - wind_end))
+        elif t > move.last_hit + move.active:
+            p = blend_pose(p, resting, (t - move.last_hit - move.active) / max(.001, move.recovery))
     return p
 
 

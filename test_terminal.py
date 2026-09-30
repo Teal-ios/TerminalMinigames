@@ -29,7 +29,7 @@ class TerminalTests(unittest.TestCase):
         deadline = time.monotonic() + 4
         while marker not in output and time.monotonic() < deadline:
             output += self.drain(fd)
-        self.assertIn(marker, output)
+        self.assertTrue(marker in output, f'Missing {marker!r}; received {len(output)} bytes, tail={output[-200:]!r}')
         return output
 
     def test_all_games_accept_input_and_restore_terminal(self):
@@ -45,6 +45,10 @@ class TerminalTests(unittest.TestCase):
                     output = self.until(master, b'TO START')
                     os.write(master, b'\rad')
                     output += self.drain(master)
+                    if game == 'fight':
+                        os.write(master, b'a')
+                        # Curses may retain the leading G from the previous GAP label.
+                        output += self.until(master, b'STRIKES BLOCKED')
                     os.write(master, b'p')
                     output += self.until(master, b'PAUSED')
                     os.write(master, b'r')
