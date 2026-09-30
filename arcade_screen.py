@@ -8,13 +8,15 @@ class Screen:
     def __init__(self, window, width, height):
         self.window, self.width, self.height = window, width, height
         self.left = self.top = 0
-        self.styles = [curses.A_NORMAL] * 5
+        self.styles = [curses.A_NORMAL] * 6
         if curses.has_colors():
             curses.start_color()
             for index, color in enumerate((curses.COLOR_CYAN, curses.COLOR_YELLOW,
                                             curses.COLOR_RED, curses.COLOR_GREEN), 1):
                 curses.init_pair(index, color, curses.COLOR_BLACK)
                 self.styles[index] = curses.color_pair(index) | curses.A_BOLD
+            curses.init_pair(5, curses.COLOR_BLACK, curses.COLOR_YELLOW)
+            self.styles[5] = curses.color_pair(5) | curses.A_BOLD
 
     def text(self, y, x, value, color=0):
         try:

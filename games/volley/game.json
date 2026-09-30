@@ -1,1 +1,1 @@
-{"id":"volley","name":"피카츄풍 배구","description":"컴퓨터와 점프·스파이크 대결! 먼저 5점을 얻으면 승리합니다.","entry":"game.py"}
+{"id":"volley","name":"피카츄풍 배구","description":"컴퓨터와 점프·슬라이딩·스파이크 대결! 5점 선취로 승리합니다.","entry":"game.py"}

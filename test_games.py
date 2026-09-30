@@ -36,6 +36,79 @@ class SpaceTests(unittest.TestCase):
 
 
 class VolleyTests(unittest.TestCase):
+    def test_ground_space_slides_in_last_move_direction_without_jumping(self):
+        game = VolleyGame()
+        game.handle(ord('a'))
+        x = game.players[0][0]
+        game.handle(ord(' '))
+        game.update(0.1)
+        self.assertLess(game.players[0][0], x - 2)
+        self.assertEqual(game.players[0][1], 0)
+        self.assertEqual(game.smash, 0)
+        self.assertGreater(game.slide_timer[0], 0)
+
+    def test_airborne_space_spikes_without_starting_slide(self):
+        game = VolleyGame()
+        game.handle(ord('w'))
+        game.handle(ord(' '))
+        self.assertGreater(game.smash, 0)
+        self.assertEqual(game.slide_timer[0], 0)
+        game.update(0.05)
+        self.assertGreater(game.players[0][1], 0)
+
+    def test_slide_has_recovery_and_cannot_be_extended_by_repeated_space(self):
+        game = VolleyGame()
+        game.handle(ord(' '))
+        game.update(0.1)
+        remaining = game.slide_timer[0]
+        game.handle(ord(' '))
+        game.handle(ord('w'))
+        self.assertEqual(game.slide_timer[0], remaining)
+        self.assertEqual(game.players[0][2], 0)
+        for _ in range(6):
+            game.update(0.05)
+        self.assertEqual(game.slide_timer[0], 0)
+        self.assertGreater(game.recovery[0], 0)
+        x = game.players[0][0]
+        game.handle(ord('a'))
+        self.assertEqual(game.players[0][0], x)
+        for _ in range(5):
+            game.update(0.05)
+        game.handle(ord('w'))
+        self.assertGreater(game.players[0][2], 0)
+
+    def test_slide_receives_a_low_ball_that_standing_player_misses(self):
+        for sliding in (False, True):
+            game = VolleyGame()
+            game.serving = 0
+            if sliding:
+                game.handle(ord(' '))
+            game.ball = [game.players[0][0] + 1, 1.4, 0, -4]
+            game.update(0.05)
+            if sliding:
+                self.assertGreater(game.ball[3], 0)
+            else:
+                self.assertLess(game.ball[3], 0)
+
+    def test_slide_stays_in_court_and_serve_resets_motion(self):
+        game = VolleyGame()
+        game.players[0][0] = 25
+        game.handle(ord(' '))
+        game.update(0.2)
+        self.assertLessEqual(game.players[0][0], 26)
+        game.serve(0)
+        self.assertEqual(game.slide_timer, [0, 0])
+        self.assertEqual(game.recovery, [0, 0])
+
+    def test_slide_cannot_receive_ball_through_the_net(self):
+        game = VolleyGame()
+        game.serving = 0
+        game.players[0][0] = 26
+        game.handle(ord(' '))
+        game.ball = [31, 1.5, 0, -3]
+        game.update(0.01)
+        self.assertLess(game.ball[3], 0)
+
     def test_ball_on_player_ground_scores_for_cpu(self):
         game = VolleyGame()
         game.serving = 0
