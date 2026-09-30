@@ -103,10 +103,11 @@ def hurtbox(fighter):
 
 
 class FightGame:
-    def __init__(self, selected=0, rng=None, cpu_enabled=True, cpu_selected=None):
+    def __init__(self, selected=0, rng=None, cpu_enabled=True, cpu_selected=None, training=False):
         self.selected = selected
         self.rng = rng if rng is not None else random.Random()
         self.cpu_enabled = cpu_enabled
+        self.training, self.dummy_guard = training, False
         self.cpu_selected = cpu_selected
         self.opponent = cpu_selected if cpu_selected is not None else self.rng.randrange(3)
         self.phase = 'select'
@@ -124,6 +125,8 @@ class FightGame:
                          Fighter(ROSTER[self.opponent], 43, facing=-1)]
         for old, new in zip(previous, self.fighters):
             new.meter = old.meter
+        if self.training:
+            self.fighters[0].meter = 100
         self.remaining = 60.0
         self.throw = None
         self.projectiles = []
@@ -148,14 +151,20 @@ class FightGame:
             self.new_round()
         elif key == ord('0'):
             self.cpu_selected = None
+        elif key == ord('9'):
+            self.training = not self.training
+            self.new_round()
 
     def start(self):
         self.opponent = self.cpu_selected if self.cpu_selected is not None else self.rng.randrange(3)
+        for fighter in self.fighters:
+            fighter.meter = 0
         self.new_round()
         self.phase = 'fight'
 
     def restart(self):
-        return type(self)(self.selected, cpu_enabled=self.cpu_enabled, cpu_selected=self.cpu_selected)
+        return type(self)(self.selected, cpu_enabled=self.cpu_enabled,
+                          cpu_selected=self.cpu_selected, training=self.training)
 
     def say(self, text):
         self.message, self.message_timer = text, 1.1
@@ -286,7 +295,8 @@ class FightGame:
                     or (defender.crouch > 0 and not self.guarding(defender))
                     or defender.stun > 0 or attacker.y > 0):
                 return 'miss'
-            self.throw = Throw(side, move, cpu_break=self.cpu_enabled and side == 0 and self.rng.random() < 0.35)
+            self.throw = Throw(side, move, cpu_break=self.cpu_enabled and not self.training
+                               and side == 0 and self.rng.random() < 0.35)
             for fighter in self.fighters:
                 fighter.attack = None
                 fighter.queue.clear()
@@ -404,6 +414,12 @@ class FightGame:
             self.press(1, 'k')
 
     def end_round(self):
+        if self.training:
+            self.throw = None
+            self.projectiles.clear()
+            self.phase, self.between = 'between', 1.0
+            self.message = 'TRAINING RESET - KEEP PRACTICING!'
+            return
         health = [fighter.hp / fighter.profile.hp for fighter in self.fighters]
         if health[0] == health[1]:
             self.message = 'DRAW ROUND'
@@ -431,6 +447,8 @@ class FightGame:
             self.tick(dt / steps)
 
     def tick(self, dt):
+        if self.training:
+            self.fighters[0].meter = 100
         self.visual_time += dt
         self.shake = max(0, self.shake - dt)
         for effect in self.effects:
@@ -444,12 +462,14 @@ class FightGame:
         if self.phase == 'between':
             self.between -= dt
             if self.between <= 0:
-                self.round += 1
+                if not self.training:
+                    self.round += 1
                 self.new_round()
                 self.phase = 'fight'
             return
         self.elapsed += dt
-        self.remaining = max(0, self.remaining - dt)
+        if not self.training:
+            self.remaining = max(0, self.remaining - dt)
         self.message_timer = max(0, self.message_timer - dt)
         for fighter in self.fighters:
             was_down = fighter.down > 0
@@ -504,7 +524,10 @@ class FightGame:
                 self.effect('damage', target.x, 5, 0.65, 8, str(damage))
                 self.hitstop, self.shake = 0.09, 0.3
         else:
-            if self.cpu_enabled:
+            if self.training:
+                if self.dummy_guard:
+                    self.press(1, 'guard')
+            elif self.cpu_enabled:
                 self.cpu_clock -= dt
                 if self.cpu_clock <= 0:
                     self.cpu_action()

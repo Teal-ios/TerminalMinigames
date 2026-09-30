@@ -1,1 +1,6 @@
-{"id":"volley","name":"피카츄풍 배구","description":"컴퓨터와 점프·슬라이딩·스파이크 대결! 5점 선취로 승리합니다.","entry":"game.py"}
+{
+  "id": "volley",
+  "name": "피카츄풍 배구",
+  "description": "방향 스파이크와 슬라이딩, 착지점을 예측하는 CPU와 5점 승부.",
+  "entry": "game.py"
+}

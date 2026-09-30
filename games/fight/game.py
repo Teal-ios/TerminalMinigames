@@ -23,6 +23,11 @@ class TerminalFight(FightGame):
         self.range_guide = False
 
     def handle(self, key):
+        if self.training and not self.help_open and key in (ord('y'), ord('Y')):
+            self.dummy_guard = not self.dummy_guard
+            self.fighters[1].guard = 0
+            self.say('DUMMY: ' + ('GUARD / PRACTICE THROWS' if self.dummy_guard else 'STAND / PRACTICE COMBOS'))
+            return
         if key in (ord('b'), ord('B')):
             self.range_guide = not self.range_guide
             return
@@ -68,7 +73,8 @@ class TerminalFight(FightGame):
         if self.help_open:
             self.draw_help(screen)
             return
-        screen.centered(2, f'ROUND {self.round}    YOU {self.wins[0]} : {self.wins[1]} CPU    TIME {math.ceil(self.remaining):02}', 2)
+        screen.centered(2, ('TRAINING / INFINITE MP / Y: DUMMY ' + ('GUARD' if self.dummy_guard else 'STAND'))
+                        if self.training else f'ROUND {self.round}    YOU {self.wins[0]} : {self.wins[1]} CPU    TIME {math.ceil(self.remaining):02}', 2)
         for side, fighter in enumerate(self.fighters):
             col = 1 if side == 0 else 34
             screen.text(3, col, ('YOU ' if side == 0 else 'CPU ') + fighter.profile.name, 1 if side == 0 else 3)
@@ -107,6 +113,7 @@ class TerminalFight(FightGame):
         cpu_name = 'RANDOM' if self.cpu_selected is None else ROSTER[self.cpu_selected].name
         screen.text(5, 3, 'CPU FIGHTER: ' + cpu_name, 3)
         screen.text(6, 3, 'CPU: 4 STRIKER / 5 RUSH / 6 IRON / 0 RANDOM')
+        screen.text(7, 3, '9: MODE ' + ('TRAINING / NO TIMER / INFINITE MP' if self.training else 'CPU MATCH / FIRST TO TWO'), 4)
         portraits = Surface(62, 11)
         for index, profile in enumerate(ROSTER):
             x = 10 + index * 20
@@ -133,7 +140,8 @@ class TerminalFight(FightGame):
         screen.text(15, 2, 'Combos scale damage; 6 hits force a knockdown.')
         screen.text(17, 2, ROSTER[self.selected].name + ' SPECIAL MOVES', 1)
         self.skill_rows(screen, 19)
-        screen.text(25, 2, 'Land hits/build meter, then spend it on special moves.')
+        screen.text(25, 2, 'TRAINING: Y switches dummy stand/guard. R resets.' if self.training
+                    else 'Try 9 on the character screen for infinite-MP training.')
         screen.text(27, 2, 'R: rematch with same choices (random CPU rerolls).')
         screen.text(28, 2, 'B: show attack reach. Hit sparks freeze the action briefly.')
         screen.text(29, 2, 'Q: quit. Run arcade fight again to change characters.')

@@ -1,1 +1,6 @@
-{"id":"fight","name":"졸라맨 격투","description":"캐릭터 3명, 고유 기술 15종, 콤보·공중 연속기·잡기! CPU 직접 선택 또는 랜덤.","entry":"game.py"}
+{
+  "id": "fight",
+  "name": "졸라맨 격투",
+  "description": "캐릭터별 기술·콤보·후진 가드·잡기와 무제한 MP 연습 모드.",
+  "entry": "game.py"
+}

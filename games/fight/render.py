@@ -97,14 +97,24 @@ def limb_pose(fighter, clock):
         winding = dict(p, shoulder=(-2, 22), head=(-2, 27), elbow=(-5, 18), hand=(-3, 23))
         reach = (move.reach - 1.2) * 2
         reach = min(reach, 13) if move.projectile else reach
-        if move.height == 'low':
+        if move.height == 'grab':
+            p.update(shoulder=(2, 20), head=(3, 25), elbow=(reach / 2, 16), hand=(reach, 20),
+                     back_elbow=(reach / 2 - 1, 14), back_hand=(reach, 17))
+        elif move.name == 'IRON SHOULDER':
+            p.update(hip=(2, 12), shoulder=(reach * .8, 19), head=(reach * .65, 25),
+                     elbow=(reach * .65, 13), hand=(reach, 16), back_foot=(-9, 0))
+        elif move.name == 'QUAKE FIST':
+            p.update(hip=(-2, 6), shoulder=(0, 14), head=(0, 20), elbow=(reach * .6, 8),
+                     hand=(reach, 2), knee=(5, 5), back_foot=(-8, 0))
+        elif move.height == 'low':
             p.update(hip=(-2, 5), shoulder=(-3, 12), head=(-3, 17), knee=(reach / 2, 3), foot=(reach, 2))
-        elif move.launch:
-            p.update(shoulder=(2, 23), head=(1, 28), elbow=(reach / 2, 26), hand=(reach, 32))
         elif 'KICK' in move.name or 'AXE' in move.name:
             p.update(hip=(-2, 14), shoulder=(-4, 23), head=(-5, 28),
-                     knee=(reach / 2, 15), foot=(reach, 14), back_foot=(-5, 0))
+                     knee=(reach / 2, 22 if move.launch else 15),
+                     foot=(reach, 29 if move.launch else 14), back_foot=(-5, 0))
             winding.update(knee=(3, 12), foot=(1, 7))
+        elif move.launch:
+            p.update(shoulder=(2, 23), head=(1, 28), elbow=(reach / 2, 26), hand=(reach, 32))
         else:
             y = 21 if move.height == 'high' else 15
             p.update(shoulder=(2, 22), head=(1, 27), elbow=(reach * 0.5, y + 1), hand=(reach, y))
@@ -177,7 +187,8 @@ def figure(surface, fighter, clock, shift=0, floor=60, grapple=None):
     if fighter.attack:
         move, t = fighter.attack.move, fighter.attack.elapsed
         if move.startup <= t <= move.last_hit + move.active:
-            hand = 'foot' if move.height == 'low' or 'KICK' in move.name or 'AXE' in move.name else 'hand'
+            hand = 'foot' if ((move.height == 'low' and move.name != 'QUAKE FIST')
+                              or 'KICK' in move.name or 'AXE' in move.name) else 'hand'
             tipx, tipy = point(hand)
             shoulder = point('hip' if hand == 'foot' else 'shoulder')
             surface.line(shoulder[0], shoulder[1] + 3, tipx - facing, tipy + 2, color)

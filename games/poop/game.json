@@ -1,1 +1,6 @@
-{"id":"poop","name":"똥피하기","description":"떨어지는 똥을 피하고 생존 기록에 도전하세요.","entry":"game.py"}
+{
+  "id": "poop",
+  "name": "똥피하기",
+  "description": "낙하 경고를 보고 대시! 근접 회피 보상과 생존 기록에 도전하세요.",
+  "entry": "game.py"
+}

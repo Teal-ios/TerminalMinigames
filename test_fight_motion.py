@@ -7,6 +7,16 @@ from games.fight.render import limb_pose
 
 
 class AnimationContinuityTests(unittest.TestCase):
+    def test_quake_fist_strikes_low_with_hand_and_cyclone_kick_uses_foot(self):
+        fighter = Fighter(ROSTER[2], 20)
+        move = ROSTER[2].skills['z']
+        fighter.attack = Attack(move, elapsed=move.startup)
+        self.assertLess(limb_pose(fighter, 1)['hand'][1], 5)
+        fighter = Fighter(ROSTER[1], 20)
+        move = ROSTER[1].skills['z']
+        fighter.attack = Attack(move, elapsed=move.startup)
+        self.assertGreater(limb_pose(fighter, 1)['foot'][1], 20)
+
     def test_attack_pose_does_not_snap_when_strike_becomes_active(self):
         for profile in ROSTER:
             for move in list(BASIC.values()) + list(profile.skills.values()):

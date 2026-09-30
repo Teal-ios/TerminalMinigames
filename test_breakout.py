@@ -88,6 +88,7 @@ class BreakoutTests(unittest.TestCase):
 
     def test_last_brick_wins_and_last_life_loses(self):
         game = self.active_game()
+        game.stage = 3
         game.bricks = [Brick(10, 5)]
         game.balls = [Ball(12, 6, 0, -12)]
         game.update(0.05)
